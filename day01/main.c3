@@ -3,7 +3,6 @@ module aoc2025::app;
 import std::io;
 import std::time;
 import std::math;
-import std::collections::list;
 
 fn void main()
 {
@@ -11,11 +10,18 @@ fn void main()
 	{
 		Clock c = clock::now();
 		io::printfn("result: part 1: %d %s", part1(), c.mark());
-		// io::printfn("result: part 2: %d %s", part2(), c.mark());
+		io::printfn("result: part 2: %d %s", part2(), c.mark());
 	};
 }
 
-fn long load_rotations()
+struct Result
+{
+	long after;
+	long during;
+}
+fn long Result.sum(&self) => self.after + self.during;
+
+fn Result load_rotations()
 {
 	$if $feature(TEST):
 		String input = (String)file::load_temp("input_test")!!;
@@ -23,9 +29,10 @@ fn long load_rotations()
 		String input = (String)file::load_temp("input")!!;
 	$endif
 
+	Result r = {0, 0};
 	long pos = 50;
 	long sign = 1;
-	long ret = 0;
+	long rot;
 	foreach (line: input.trim().tsplit("\n"))
 	{
 		if (!line.len) continue;
@@ -35,10 +42,21 @@ fn long load_rotations()
 			case 'R': sign = +1;
 			default: unreachable();
 		}
-		pos += sign * line[1..].to_long()!!;
-		if (pos % 100 == 0) ret++;
+		rot = line[1..].to_long()!!;
+		while (rot--)
+		{
+			pos += sign;
+			switch (pos)
+			{
+				case 100: pos = 0;
+				case -1:  pos = 99;
+			}
+			if (rot > 0 && pos == 0) r.during++;
+		}
+		if (pos == 0) r.after++;
 	}
-	return ret;
+	return r;
 }
 
-fn long part1() => load_rotations();
+fn long part1() => load_rotations().after;
+fn long part2() => load_rotations().sum();
