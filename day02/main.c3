@@ -11,8 +11,8 @@ fn void main() => @pool()
 	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
 
-alias IsInvalidFunc = fn bool(long);
-fn long load_data(IsInvalidFunc func)
+alias IsInvalidFunc = fn bool(String);
+fn long load_data(IsInvalidFunc is_invalid)
 {
 	$if $feature(TEST):
 		String input = (String)file::load_temp("input_test")!!;
@@ -30,29 +30,27 @@ fn long load_data(IsInvalidFunc func)
 			String last  = line[dash+1..];
 			for (long i = first.to_long()!!; i <= last.to_long()!!; i++)
 			{
-				if (func(i)) sum += i;
+				if (is_invalid(string::tformat("%s",i))) sum += i;
 			}
 		}
 	}
 	return sum;
 }
 
-fn bool is_invalid_part1(long id)
+fn bool is_invalid_part1(String id)
 {
-	String tmp = string::tformat("%s", id);
-	if (tmp.len % 2 == 1) return false;
-	return (tmp[:tmp.len/2] == tmp[tmp.len/2..]);
+	if (id.len % 2 == 1) return false;
+	return (id[:id.len/2] == id[id.len/2..]);
 }
 
-fn bool is_invalid_part2(long id)
+fn bool is_invalid_part2(String id)
 {
-	String tmp = string::tformat("%s", id);
-	for (usz i = 1; i < tmp.len/2 + 1; i++)
+	for (usz i = 1; i < id.len/2 + 1; i++)
 	{
-		String s = tmp[:i];
-		if (tmp.len % i != 0) continue;
+		String s = id[:i];
+		if (id.len % i != 0) continue;
 
-		String rem = tmp;
+		String rem = id;
 		while (rem.starts_with(s)) rem = rem[i..];
 		if (rem.len == 0) return true;
 	}
