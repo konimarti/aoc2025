@@ -29,13 +29,32 @@ fn long dfs(String bank, usz n, usz rem, usz val, long[] memo)
 	if (memo[rem] > val) return 0;
 	memo[rem] = val;
 
+	// optimization
+	usz nstep = estimate_step(bank[n..], rem);
+
 	// consider number
-	long yes = dfs(bank, n+1, rem-1, 10*val + (long)(bank[n]-'0'), memo);
+	long yes = dfs(bank, n+nstep, rem-1, 10*val + (long)(bank[n]-'0'), memo);
 
 	// don't consider number
-	long no = dfs(bank, n+1, rem, val, memo);
+	long no = dfs(bank, n+nstep, rem, val, memo);
 
 	return (yes > no) ? yes : no;
+}
+
+fn usz estimate_step(String bank, usz rem)
+{
+	if (bank.len < 2) return 1;
+	usz step = 1;
+	long pivot = bank[step];
+	for (usz i = 2; i + rem < bank.len; i++)
+	{
+		if (pivot < bank[i])
+		{
+			pivot = bank[i];
+			step = i;
+		}
+	}
+	return step;
 }
 
 fn long solve(usz n)
