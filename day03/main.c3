@@ -8,7 +8,7 @@ fn void main() => @pool()
 {
 	Clock c = clock::now();
 	io::printfn("result: part 1: %d %s", part1(), c.mark());
-	// io::printfn("result: part 2: %d %s", part2(), c.mark());
+	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
 
 fn String[] load_banks()
@@ -21,32 +21,34 @@ fn String[] load_banks()
 	return input.tsplit("\n");
 }
 
-fn long find_max(String bank)
+fn long dfs(String bank, usz n, usz rem, usz val, long[] memo)
 {
-	long max, joltage;
-	usz n;
+	if (n == bank.len || rem == 0) return val;
 
-	max = 0;
-	n = bank.len;
-	for (usz i = 0; i < n - 1; i++)
-	{
-		for (usz j = i + 1; j < n; j++)
-		{
-			joltage = 10*(long)(bank[i] - '0') + (long)(bank[j] - '0');
-			if (joltage > max) max = joltage;
-		}
-	}
-	return max;
+	// memoization
+	if (memo[rem] > val) return 0;
+	memo[rem] = val;
+
+	// consider number
+	long yes = dfs(bank, n+1, rem-1, 10*val + (long)(bank[n]-'0'), memo);
+
+	// don't consider number
+	long no = dfs(bank, n+1, rem, val, memo);
+
+	return (yes > no) ? yes : no;
 }
 
-fn long part1()
+fn long solve(usz n)
 {
 	long total = 0;
+	long[13] memo;
 	foreach (bank: load_banks())
 	{
-		total += find_max(bank);
+		memo[..] = 0;
+		total += dfs(bank, 0, n, 0, memo[..]);
 	}
 	return total;
 }
 
-// fn long part2() => load_data(&is_invalid_part2);
+fn long part1() => solve(2);
+fn long part2() => solve(12);
