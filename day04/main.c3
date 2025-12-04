@@ -11,37 +11,34 @@ fn void main() => @pool()
 	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
 
-isz[2][*] dirs = { {-1, -1}, {0, -1}, {1, -1},
-                   {-1,  0},          {1,  0},
-		   {-1, +1}, {0, +1}, {1, +1} };
-
 faultdef INVALID;
 const ROLL = '@';
 
 alias Map = String[];
+alias Pos = int[<2>];
+alias Queue = List{Pos};
 
-fn usz Map.count(&self, usz x, usz y)
+Pos[*] dirs = { {-1,-1}, {0,-1}, {1,-1}, {-1,0}, {1,0}, {-1,1}, {0,1}, {1,1} };
+
+fn usz Map.count(&self, Pos p)
 {
-	long count = 0;
+	usz count = 0;
 	foreach (d: dirs)
 	{
-		if (try cell = self.get(x+d[0], y+d[1]))
-		{
-			if (cell == ROLL) count++;
-		}
+		if (try cell = self.get(p+d) && cell == ROLL) count++;
 	}
 	return count;
 }
 
-fn char? Map.get(&self, isz x, isz y)
+fn char? Map.get(m, Pos p)
 {
-	String[] m = *self;
-	if (x < 0 || x >= m.len) return INVALID?;
-	if (y < 0 || (m.len > 0 && y >= m[0].len)) return INVALID?;
-	return m[x][y];
+	Pos lower_bound = {0, 0};
+	Pos upper_bound = {m.len, m.len > 0 ? m[0].len : 0};
+	if (p.comp_lt(lower_bound).or() || p.comp_ge(upper_bound).or()) return INVALID?;
+	return m[p[0]][p[1]];
 }
 
-fn void Map.remove(&self, isz x, isz y) => (*self)[x][y] = '.';
+fn void Map.remove(&self, Pos p) => (*self)[p[0]][p[1]] = '.';
 
 fn Map load_map()
 {
@@ -53,53 +50,34 @@ fn Map load_map()
 	return input.tsplit("\n", skip_empty: true);
 }
 
-fn long count_rolls(Map m)
+fn long solve(Map m, bool remove)
 {
-	long sum = 0;
-	foreach (x, row: m) // rows
-	{
-		if (!row.len) continue;
-		foreach (y, cell: row) // cols
-		{
-			if (cell == ROLL) sum += m.count(x,y) < 4 ? 1 : 0;
-		}
-	}
-	return sum;
-}
-
-alias Pos = usz[2];
-alias Queue = List{Pos};
-fn long solve2(Map m)
-{
-	// Store all rolls in queue
-	// Pop off first
-	// If accessible, then remove
-	// Push neighbors into queue
-
 	Queue q;
 	q.tinit();
-	foreach (x, row: m) // rows
+
+	foreach (int x, row: m)
 	{
-		if (!row.len) continue;
-		foreach (y, cell: row) // cols
+		foreach (int y, cell: row)
 		{
 			if (cell == ROLL) q.push({x,y});
 		}
 	}
 
-	long removed = 0;
-	while (q.len())
+	long count = 0;
+	while (try p = q.pop_first())
 	{
-		Pos p = q.pop_first()!!;
-		if (try cell = m.get(p[0], p[1]) && cell == ROLL && m.count(p[0], p[1]) < 4)
+		if (try cell = m.get(p) && cell == ROLL && m.count(p) < 4)
 		{
-			m.remove(p[0], p[1]);
-			removed++;
-			foreach (d: dirs) q.push({p[0] + d[0], p[1] + d[1]});
+			if (remove)
+			{
+				m.remove(p);
+				foreach (d: dirs) q.push(p+d);
+			}
+			count++;
 		}
 	}
-	return removed;
+	return count;
 }
 
-fn long part1() => count_rolls(load_map());
-fn long part2() => solve2(load_map());
+fn long part1() => solve(load_map(), false);
+fn long part2() => solve(load_map(), true);
