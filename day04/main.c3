@@ -2,21 +2,23 @@ module aoc2025::app;
 
 import std::io;
 import std::time;
-import std::math;
+import std::collections::list;
 
 fn void main() => @pool()
 {
 	Clock c = clock::now();
 	io::printfn("result: part 1: %d %s", part1(), c.mark());
-	// io::printfn("result: part 2: %d %s", part2(), c.mark());
+	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
-
-const ROLL = '@';
-alias Map = String[];
 
 isz[2][*] dirs = { {-1, -1}, {0, -1}, {1, -1},
                    {-1,  0},          {1,  0},
 		   {-1, +1}, {0, +1}, {1, +1} };
+
+faultdef INVALID;
+const ROLL = '@';
+
+alias Map = String[];
 
 fn usz Map.count(&self, usz x, usz y)
 {
@@ -31,7 +33,6 @@ fn usz Map.count(&self, usz x, usz y)
 	return count;
 }
 
-faultdef INVALID;
 fn char? Map.get(&self, isz x, isz y)
 {
 	String[] m = *self;
@@ -39,6 +40,8 @@ fn char? Map.get(&self, isz x, isz y)
 	if (y < 0 || (m.len > 0 && y >= m[0].len)) return INVALID?;
 	return m[x][y];
 }
+
+fn void Map.remove(&self, isz x, isz y) => (*self)[x][y] = '.';
 
 fn Map load_map()
 {
@@ -64,5 +67,39 @@ fn long count_rolls(Map m)
 	return sum;
 }
 
+alias Pos = usz[2];
+alias Queue = List{Pos};
+fn long solve2(Map m)
+{
+	// Store all rolls in queue
+	// Pop off first
+	// If accessible, then remove
+	// Push neighbors into queue
+
+	Queue q;
+	q.tinit();
+	foreach (x, row: m) // rows
+	{
+		if (!row.len) continue;
+		foreach (y, cell: row) // cols
+		{
+			if (cell == ROLL) q.push({x,y});
+		}
+	}
+
+	long removed = 0;
+	while (q.len())
+	{
+		Pos p = q.pop_first()!!;
+		if (try cell = m.get(p[0], p[1]) && cell == ROLL && m.count(p[0], p[1]) < 4)
+		{
+			m.remove(p[0], p[1]);
+			removed++;
+			foreach (d: dirs) q.push({p[0] + d[0], p[1] + d[1]});
+		}
+	}
+	return removed;
+}
+
 fn long part1() => count_rolls(load_map());
-// fn long part2() => solve(12);
+fn long part2() => solve2(load_map());
