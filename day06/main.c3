@@ -11,15 +11,24 @@ fn void main() => @pool()
 	io::printfn("result: part 1: %d %s", part1(), c.mark());
 	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
-struct Homework
-{
-	List{long}[4] nums;
-	List{char} ops;
-	usz nlines;
-	usz len;
 
-	String[] table;
+char[4000][4] table;
+
+alias OpType = long;
+alias Accumulator = fn OpType(OpType, OpType);
+
+fn OpType add(OpType acc, OpType elem) => acc + elem;
+fn OpType mul(OpType acc, OpType elem) => acc * elem;
+
+struct Block
+{
+	Slice2d{char} c;
+	Accumulator   a;
+	OpType        s;
 }
+
+alias Homework = List{Block};
+
 fn Homework load_homework()
 {
 	$if $feature(TEST):
@@ -31,104 +40,62 @@ fn Homework load_homework()
 	$endif
 
 	Homework hw;
-	hw.nlines = nlines;
+	hw.tinit();
 
-	hw.table = input.trim().tsplit("\n", skip_empty: true);
-	for (usz i = 0; i < nlines; i++)
+	String[] lines = input.tsplit("\n", skip_empty: true);
+	foreach (row, line: lines[:nlines])
 	{
-		hw.nums[i].tinit();
-		foreach (num: hw.table[i].trim().tsplit(" ", skip_empty:true))
-		{
-			hw.nums[i].push(num.to_long()!!);
-		}
+		foreach (col, cell: line) table[row][col] = cell;
 	}
-	hw.ops.tinit();
-	foreach (ops: hw.table[nlines].trim().tsplit(" ", skip_empty:true))
+	usz len;
+	foreach (col, ops: lines[nlines])
 	{
-		assert (ops.len == 1);
-		hw.ops.push(ops[0]);
+		if (ops == ' ') continue;
+		len = 1;
+		while (col+len < lines[nlines].len && lines[nlines][col+len] == ' ') len++;
+		hw.push({
+			.c = array::slice2d(&table, col, len, 0, nlines),
+			.a = ops == '+' ? &add : &mul,
+			.s = ops == '+' ? 0 : 1,
+		});
 	}
-	hw.len = hw.ops.len();
-
-	for (usz i = 0; i < nlines; i++) assert(hw.nums[i].len() == hw.len);
 	return hw;
 }
 
-alias OpType = long;
-alias OpFn = fn OpType(OpType acc, OpType elem);
-
-fn OpType add(OpType acc, OpType elem) => acc + elem;
-fn OpType mul(OpType acc, OpType elem) => acc * elem;
-
-fn OpFn get_opts(char c, long *init)
+fn long solve(Homework hw, bool vert = false)
 {
-	switch (c)
+	long total = 0;
+	foreach (block: hw)
 	{
-		case '+': *init = 0; return &add;
-		case '*': *init = 1; return &mul;
-		default: unreachable();
-	}
-}
-
-fn long solve(Homework hw)
-{
-	long total, sum;
-	total = 0;
-	foreach (i, op: hw.ops)
-	{
-		OpFn opf = get_opts(op, &sum);
-		for (usz j = 0; j < hw.nlines; j++) sum = opf(sum, hw.nums[j][i]);
-		total += sum;
-	}
-	return total;
-}
-
-fn usz num_digits(long num) => (long)math::log((double)num, 10) + 1;
-
-fn long solve2(Homework hw)
-{
-	List{usz} startpos;
-	startpos.tinit();
-	startpos.push(0);
-	foreach (i, c: hw.table[0])
-	{
-		if (c != ' ') continue;
-		bool col = true;
-		for (usz j = 0; j < hw.nlines; j++) col = col && hw.table[j][i] == ' ';
-		if (col) startpos.push(i+1);
-	}
-
-	long total, sum;
-	usz cols;
-	total = 0;
-	foreach (i, op: hw.ops)
-	{
-		cols = 0;
-		for (usz j = 0; j < hw.nlines; j++)
+		if (!vert)
 		{
-			usz ndigits = num_digits(hw.nums[j][i]);
-			if (ndigits > cols) cols = ndigits;
-		}
-
-		OpFn opf = get_opts(op, &sum);
-
-		usz start = startpos[i];
-		for (usz y = start; y < start + cols; y++)
-		{
-			long num = 0;
-			for (usz x = 0; x < hw.nlines; x++)
+			foreach (row: block.c)
 			{
-				char c = hw.table[x][y];
-				if (num > 0 && c == ' ') break;
-				num *= 10;
-				if (ascii::is_digit(c)) num += (long)(c - '0');
+				if (try num = ((String)row).trim().to_long())
+				{
+					block.s = block.a(block.s, num);
+				}
 			}
-			sum = opf(sum, num);
 		}
-		total += sum;
+		else // part 2
+		{
+			char[4] col;
+			for (usz ncol = 0; ncol < block.c.xlen; ncol++)
+			{
+				block.c.@each(; pos, c)
+				{
+					if (pos.x == ncol) col[pos.y] = c;
+				};
+				if (try num = ((String)col[..]).trim().to_long())
+				{
+					block.s = block.a(block.s, num);
+				}
+			}
+		}
+		total += block.s;
 	}
 	return total;
 }
 
 fn long part1() => solve(load_homework());
-fn long part2() => solve2(load_homework());
+fn long part2() => solve(load_homework(), true);
