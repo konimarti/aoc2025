@@ -7,9 +7,7 @@ import std::collections::set;
 
 fn void main() => @pool()
 {
-	Clock c = clock::now();
-	io::printfn("result: part 1: %d %s", part1(), c.mark());
-	// io::printfn("result: part 2: %d %s", part2(), c.mark());
+	solve(load_coords());
 }
 
 alias Vec = double[<3>];
@@ -49,12 +47,12 @@ struct Dist
 }
 alias DistList = List{Dist};
 
-fn long solve(VecList coords)
+fn void solve(VecList coords)
 {
 	DistList dist;
 	dist.tinit();
 
-	// find distances
+	// Calculate distances for each pair
 	for(usz i = 0; i < coords.len() - 1; i++)
 	{
 		for(usz j = i + 1; j < coords.len(); j++)
@@ -69,22 +67,29 @@ fn long solve(VecList coords)
 		return 0;
 	});
 
-	// foreach (d : dist) io::printfn("x:%2d y:%2d dist:%.3f", d.x, d.y, d.dist);
+	$if $feature(TEST):
+		usz pairs = 10;
+	$else
+		usz pairs = 1000;
+	$endif
 
 	CircuitList cl; cl.tinit();
 	Circuit considered; considered.tinit();
 	foreach (i, d: dist)
 	{
-		$if $feature(TEST):
-			if (i == 10) break;
-		$else
-			if (i == 1000) break;
-		$endif
+		if (i == pairs)
+		{
+			List{long} circuit_length;
+			circuit_length.tinit();
+			foreach (circuit: cl) circuit_length.push(circuit.len());
+
+			sort::quicksort(circuit_length.array_view());
+
+			io::printfn("part 1: result = %d", circuit_length[^1] * circuit_length[^2] * circuit_length[^3]);
+		}
 
 		long x = d.x;
 		long y = d.y;
-		// io::printfn("set     : %s", cl);
-		// io::printfn("shortest: %s (%d) and %s (%d)", coords[x], x, coords[y], y);
 		bool xcons = considered.contains(x);
 		bool ycons = considered.contains(y);
 		switch
@@ -99,13 +104,13 @@ fn long solve(VecList coords)
 				}
 				if (yc!= xc)
 				{
-					// merge
+					// Merge circuits
 					xc.add_all_from(yc);
 					yc.clear();
 				}
 
 			case xcons:
-				// find circuit where x is and append y
+				// Find circuit where x is and append y
 				foreach (&circuit: cl)
 				{
 					if (circuit.contains(x))
@@ -116,7 +121,7 @@ fn long solve(VecList coords)
 					}
 				}
 			case ycons:
-				// find circuit where y is and append x
+				// Find circuit where y is and append x
 				foreach (&circuit: cl)
 				{
 					if (circuit.contains(y))
@@ -127,7 +132,7 @@ fn long solve(VecList coords)
 					}
 				}
 			default:
-				// create new circuit with x and y
+				// Create new circuit with x and y
 				Circuit new; new.tinit();
 				new.add(x);
 				new.add(y);
@@ -135,20 +140,11 @@ fn long solve(VecList coords)
 				considered.add(x);
 				considered.add(y);
 		}
+		foreach (c: cl) if (c.len() == coords.len())
+		{
+			io::printfn("part 2: result = %d", coords[x].x * coords[y].x);
+			return;
+		}
 	}
 
-	io::printfn("finalset: %s", cl);
-
-	// multiply 3 largest circuits
-	List{long} circuit_length;
-	circuit_length.tinit();
-	foreach (circuit: cl) circuit_length.push(circuit.len());
-	sort::quicksort(circuit_length.array_view());
-
-	io::printfn("sorted len: %s", circuit_length);
-
-	return circuit_length[^1] * circuit_length[^2] * circuit_length[^3];
 }
-
-fn long part1() => solve(load_coords());
-// fn long part2() => solve2(load_map());
