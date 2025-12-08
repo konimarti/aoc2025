@@ -11,12 +11,9 @@ fn void main() => @pool()
 }
 
 alias Vec = double[<3>];
-fn double Vec.dist(&self, Vec b)
-{
-	Vec d = *self - b;
-	return math::sqrt(d.dot(d));
-}
 alias VecList = List{Vec};
+
+fn double calc_dist(Vec a, Vec b) => math::sqrt((a-b).dot(a-b));
 
 fn VecList load_coords()
 {
@@ -45,6 +42,7 @@ struct Dist
 	usz y;
 	double dist;
 }
+fn int Dist.compare_to(a, Dist b) => a.dist < b.dist ? -1 : (a.dist > b.dist ? 1 : 0);
 alias DistList = List{Dist};
 
 fn void solve(VecList coords)
@@ -57,15 +55,10 @@ fn void solve(VecList coords)
 	{
 		for(usz j = i + 1; j < coords.len(); j++)
 		{
-			dist.push({i, j, coords[i].dist(coords[j])});
+			dist.push({i, j, calc_dist(coords[i],coords[j])});
 		}
 	}
-
-	sort::quicksort(dist.array_view(), fn int(Dist a, Dist b){
-		if (a.dist < b.dist) return -1;
-		if (a.dist > b.dist) return 1;
-		return 0;
-	});
+	sort::quicksort(dist.array_view());
 
 	$if $feature(TEST):
 		usz pairs = 10;
@@ -74,77 +67,40 @@ fn void solve(VecList coords)
 	$endif
 
 	CircuitList cl; cl.tinit();
-	Circuit considered; considered.tinit();
+	Circuit* xc, yc;
 	foreach (i, d: dist)
 	{
-		if (i == pairs)
+		xc = null; yc = null;
+		foreach (&c: cl)
 		{
-			List{long} circuit_length;
-			circuit_length.tinit();
-			foreach (circuit: cl) circuit_length.push(circuit.len());
-
-			sort::quicksort(circuit_length.array_view());
-
-			io::printfn("part 1: result = %d", circuit_length[^1] * circuit_length[^2] * circuit_length[^3]);
+			if (c.contains(d.x)) xc = c;
+			if (c.contains(d.y)) yc = c;
 		}
 
-		long x = d.x;
-		long y = d.y;
-		bool xcons = considered.contains(x);
-		bool ycons = considered.contains(y);
 		switch
 		{
-			case xcons && ycons:
-				Circuit *xc;
-				Circuit *yc;
-				foreach (&circuit: cl)
-				{
-					if (circuit.contains(x)) xc= circuit;
-					if (circuit.contains(y)) yc= circuit;
-				}
-				if (yc!= xc)
-				{
-					// Merge circuits
-					xc.add_all_from(yc);
-					yc.clear();
-				}
-
-			case xcons:
-				// Find circuit where x is and append y
-				foreach (&circuit: cl)
-				{
-					if (circuit.contains(x))
-					{
-						circuit.add(y);
-						considered.add(y);
-						break;
-					}
-				}
-			case ycons:
-				// Find circuit where y is and append x
-				foreach (&circuit: cl)
-				{
-					if (circuit.contains(y))
-					{
-						circuit.add(x);
-						considered.add(x);
-						break;
-					}
-				}
+			case xc && yc && xc == yc: break;
+			case xc && yc && xc != yc: xc.add_all_from(yc); yc.clear();
+			case xc != null: xc.add(d.y);
+			case yc != null: yc.add(d.x);
 			default:
-				// Create new circuit with x and y
-				Circuit new; new.tinit();
-				new.add(x);
-				new.add(y);
+				Circuit new;
+				new.tinit_with_values(d.x, d.y);
 				cl.push(new);
-				considered.add(x);
-				considered.add(y);
 		}
+
+		if (i+1 == pairs)
+		{
+			usz[] len = mem::temp_array(usz, cl.len());
+			foreach (j, c: cl) len[j] = c.len();
+			sort::quicksort(len);
+			io::printfn("part 1: result = %d", len[^1]*len[^2]*len[^3]);
+		}
+
 		foreach (c: cl) if (c.len() == coords.len())
 		{
-			io::printfn("part 2: result = %d", coords[x].x * coords[y].x);
+			io::printfn("part 2: result = %d", coords[d.x].x * coords[d.y].x);
 			return;
 		}
 	}
-
 }
