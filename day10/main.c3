@@ -11,6 +11,7 @@ fn void main() => @pool()
 
 alias IntList = List{usz};
 alias ButtonList = List{ulong};
+alias ButtonIndexList = List{IntList};
 alias MachineList = List{Machine};
 
 struct Machine
@@ -18,7 +19,8 @@ struct Machine
 	ulong      num_ind;
 	ulong      i; // indicators: [.##.] is stored as '110' with size
 	              //  and [...#.] is stored as '2'
-	ButtonList b; // buttons
+	ButtonList b; // buttons as ulong
+	ButtonIndexList bi; // buttons as indexes
 	IntList    j; // joltage
 }
 
@@ -35,6 +37,7 @@ fn MachineList load_machines()
 	{
 		Machine m;
 		m.b.tinit();
+		m.bi.tinit();
 		m.j.tinit();
 		for (usz i = 0; i < line.len; i++)
 		{
@@ -52,14 +55,18 @@ fn MachineList load_machines()
 				case '(':
 					ulong button = 0;
 					usz start = i;
+					IntList indexes;
+					indexes.tinit();
 					while (line[i] != ')') i++;
 					String bstr = line[start + 1:(i-start-1)];
 					foreach (b: bstr.tsplit(",", skip_empty: true))
 					{
 						usz index = (usz)b.to_int()!!;
 						button ^= (ulong)1<<(m.num_ind-index-1);
+						indexes.push(index);
 					}
 					m.b.push(button);
+					m.bi.push(indexes);
 				case '{':
 					nextcase;
 					// TBD
@@ -77,37 +84,48 @@ fn long solve(MachineList machines)
 	foreach (i, m : machines)
 	{
 		long min = min_button_presses(m);
-		io::printfn("Machine %d: %d presses", i, min);
+		io::printfn("Machine %d: %d presses - buttons: %s", i, min, m.bi);
 		total += min;
 	}
 	return total;
 }
 
-struct Press
-{
-	usz   pressed; // Number of presses
-	ulong indicator;
-}
-alias Queue = List{Press};
-
 fn long min_button_presses(Machine m)
 {
-	long min = 0;
-	Queue q;
-	q.tinit();
-	q.push({0, 0});
-	while (try p = q.pop_first())
+	long min = long.max;
+	ulong ind, len;
+	len = m.b.len();
+	for (long i = 0; i < (long)(1 << len); i++) // Loop over every combination of buttons
 	{
-		if (p.indicator == m.i) return p.pressed;
-		foreach (button: m.b)
+		long press = 0;
+		ind = 0;
+		for (usz j = 0; j < len; j++) // Loop over the available buttons
 		{
-			if (p.indicator ^ button == m.i) return p.pressed + 1;
-			q.push({p.pressed+1, p.indicator ^ button});
+			if (((ulong)i & (ulong)(1 << j)) != 0) // Check if this button is "pressed" in the given combination i
+			{
+				ind ^= m.b[j];
+				press++;
+			}
+		}
+		if (ind == m.i)
+		{
+			if (press < min) min = press;
 		}
 	}
+	return min;
+}
 
-	return 0;
+fn long solve2(MachineList machines)
+{
+	long total = 0;
+	foreach (i, m : machines)
+	{
+		long min = min_button_presses(m);
+		io::printfn("Machine %d: %d presses - buttons: %s", i, min, m.bi);
+		total += min;
+	}
+	return total;
 }
 
 fn long part1() => solve(load_machines());
-// fn long part2() => solve2(load_coords());
+fn long part2() => solve2(load_machines());
