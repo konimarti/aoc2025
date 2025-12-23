@@ -6,11 +6,11 @@ fn void main() => @pool()
 {
 	Clock c = clock::now();
 	io::printfn("result: part 1: %d %s", part1(), c.mark());
-	// io::printfn("result: part 2: %d %s", part2(), c.mark());
+	io::printfn("result: part 2: %d %s", part2(), c.mark());
 }
 
-alias IntList = List{usz};
-alias ButtonList = List{ulong};
+alias IntList = List{long};
+alias ButtonList = List{long};
 alias ButtonIndexList = List{IntList};
 alias MachineList = List{Machine};
 
@@ -68,8 +68,8 @@ fn MachineList load_machines()
 					m.b.push(button);
 					m.bi.push(indexes);
 				case '{':
-					nextcase;
-					// TBD
+					String rem = line[i+1..].trim().strip_end("}");
+					foreach (num: rem.tsplit(",")) m.j.push(num.to_int()!!);
 				default: continue;
 			}
 		}
@@ -83,14 +83,14 @@ fn long solve(MachineList machines)
 	long total = 0;
 	foreach (i, m : machines)
 	{
-		long min = min_button_presses(m);
-		io::printfn("Machine %d: %d presses - buttons: %s", i, min, m.bi);
+		long min = min_button_presses(m, m.i);
+		// io::printfn("Machine %d: %d presses - buttons: %s", i, min, m.bi);
 		total += min;
 	}
 	return total;
 }
 
-fn long min_button_presses(Machine m)
+fn long min_button_presses(Machine m, ulong mi, HashMap{long, long} *comb = null)
 {
 	long min = long.max;
 	ulong ind, len;
@@ -107,12 +107,13 @@ fn long min_button_presses(Machine m)
 				press++;
 			}
 		}
-		if (ind == m.i)
+		if (ind == mi)
 		{
 			if (press < min) min = press;
+			if (comb) comb.[i] = press;
 		}
 	}
-	return min;
+	return min >= long.max ? 0 : min;
 }
 
 fn long solve2(MachineList machines)
@@ -120,11 +121,72 @@ fn long solve2(MachineList machines)
 	long total = 0;
 	foreach (i, m : machines)
 	{
-		long min = min_button_presses(m);
-		io::printfn("Machine %d: %d presses - buttons: %s", i, min, m.bi);
+		long min = min_joltage_presses(m, m.j.to_tarray()) ?? -99;
+		// io::printfn("Machine %d: %d presses", i, min);
 		total += min;
 	}
 	return total;
+}
+
+fn long? min_joltage_presses(Machine m, long[] joltage)
+{
+	// Parity check: x = b + 2k (x key presses)
+	ulong mi;
+	bool done = true;
+	foreach (ulong i, jolt: joltage)
+	{
+		done = done && jolt == 0;
+		if (jolt % 2 == 1) mi ^= (ulong)(1 << (m.num_ind-i-1));
+	}
+	if (done) return 0;
+
+	HashMap{long, long} combinations;
+	combinations.tinit();
+	(void)min_button_presses(m, mi, &combinations);
+
+	List{long} min_press;
+	min_press.tinit();
+
+	long[] next_joltage = mem::temp_array(long, joltage.len);
+
+	// Try all combinations
+	combinations.@each(; long c, long presses)
+	{
+		next_joltage[..] = joltage[..];
+
+		// "Press" buttons and adjust joltage
+		foreach (i, buttons: m.bi)
+		{
+			if ((c & (long)(1<<i)) != 0)
+			{
+				foreach (j: buttons) next_joltage[j]--;
+			}
+		}
+
+		// Check for invalid joltage (e.g. negative)
+		bool invalid = false;
+		foreach (jolt: next_joltage) invalid = invalid || jolt < 0;
+		if (!invalid)
+		{
+			// Check all joltages should be even now
+			// io::printfn("joltage even = %s", next_joltage);
+
+			// Bifurcate (e.g. half it)
+			foreach (&jolt: next_joltage) *jolt /= 2;
+			// io::printfn("joltage half = %s", next_joltage);
+
+			if (try next_press = min_joltage_presses(m, next_joltage))
+			{
+				min_press.push(presses + 2 * next_press);
+			}
+		}
+	};
+
+	if (min_press.len() == 0) return NOT_FOUND?;
+
+	long min = min_press[0];
+	foreach (press: min_press) min = (press < min) ? press : min;
+	return min;
 }
 
 fn long part1() => solve(load_machines());
